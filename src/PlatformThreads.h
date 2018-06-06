@@ -25,6 +25,17 @@ typedef struct _PLT_THREAD {
     void *context;
     int alive;
 } PLT_THREAD;
+#elif defined(__SWITCH__)
+typedef Mutex PLT_MUTEX;
+typedef struct _PLT_EVENT {
+    Mutex mutex;
+    CondVar cond;
+    int signalled;
+} PLT_EVENT;
+typedef struct _PLT_THREAD {
+    Thread thread;
+    int cancelled;
+} PLT_THREAD;
 #elif defined (LC_POSIX)
 typedef pthread_mutex_t PLT_MUTEX;
 typedef struct _PLT_EVENT {

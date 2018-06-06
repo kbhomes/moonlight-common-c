@@ -79,6 +79,13 @@ int PltCreateMutex(PLT_MUTEX* mutex) {
         return -1;
     }
     return 0;
+#elif defined(__SWITCH__)
+    mutexInit(mutex);
+
+    if (!*mutex) {
+        return -1;
+    }
+    return 0;
 #else
     return pthread_mutex_init(mutex, NULL);
 #endif
@@ -89,6 +96,8 @@ void PltDeleteMutex(PLT_MUTEX* mutex) {
     CloseHandle(*mutex);
 #elif defined(__vita__)
     sceKernelDeleteMutex(*mutex);
+#elif defined(__SWITCH__)
+    /// TODO: no ability to "close" a mutex with libnx?
 #else
     pthread_mutex_destroy(mutex);
 #endif
@@ -103,6 +112,8 @@ void PltLockMutex(PLT_MUTEX* mutex) {
     }
 #elif defined(__vita__)
     sceKernelLockMutex(*mutex, 1, NULL);
+#elif defined(__SWITCH__)
+    mutexLock(mutex);
 #else
     pthread_mutex_lock(mutex);
 #endif
@@ -113,6 +124,8 @@ void PltUnlockMutex(PLT_MUTEX* mutex) {
     ReleaseMutex(*mutex);
 #elif defined(__vita__)
     sceKernelUnlockMutex(*mutex, 1);
+#elif defined(__SWITCH__)
+    mutexUnlock(mutex);
 #else
     pthread_mutex_unlock(mutex);
 #endif
@@ -128,6 +141,8 @@ void PltJoinThread(PLT_THREAD* thread) {
     }
     if (thread->context != NULL)
         free(thread->context);
+#elif defined(__SWITCH__)
+    threadWaitForExit(&thread->thread);
 #else
     pthread_join(thread->thread, NULL);
 #endif
@@ -139,6 +154,8 @@ void PltCloseThread(PLT_THREAD* thread) {
     CloseHandle(thread->handle);
 #elif defined(__vita__)
     sceKernelDeleteThread(thread->handle);
+#elif defined(__SWITCH__)
+    threadClose(&thread->thread);
 #endif
 }
 
@@ -183,6 +200,13 @@ int PltCreateThread(ThreadEntry entry, void* context, PLT_THREAD* thread) {
         }
         sceKernelStartThread(thread->handle, sizeof(struct thread_context), ctx);
     }
+#elif defined(__SWITCH__)
+    int err = threadCreate(&thread->thread, ThreadProc, ctx, 0x40000, 0, -2);
+    if (err) {
+        free(ctx);
+        return err;
+    }
+    threadStart(&thread->thread);
 #else
     {
         int err = pthread_create(&thread->thread, NULL, ThreadProc, ctx);
@@ -218,6 +242,11 @@ int PltCreateEvent(PLT_EVENT* event) {
     }
     event->signalled = 0;
     return 0;
+#elif defined(__SWITCH__)
+    mutexInit(&event->mutex);
+    condvarInit(&event->cond, &event->mutex);
+    event->signalled = 0;
+    return 0;
 #else
     pthread_mutex_init(&event->mutex, NULL);
     pthread_cond_init(&event->cond, NULL);
@@ -232,6 +261,8 @@ void PltCloseEvent(PLT_EVENT* event) {
 #elif defined(__vita__)
     sceKernelDeleteCond(event->cond);
     sceKernelDeleteMutex(event->mutex);
+#elif defined(__SWITCH__)
+    /// TODO: no ability to close a mutex or a cond variable in libnx?
 #else
     pthread_mutex_destroy(&event->mutex);
     pthread_cond_destroy(&event->cond);
@@ -246,6 +277,11 @@ void PltSetEvent(PLT_EVENT* event) {
     event->signalled = 1;
     sceKernelUnlockMutex(event->mutex, 1);
     sceKernelSignalCondAll(event->cond);
+#elif defined(__SWITCH__)
+    mutexLock(&event->mutex);
+    event->signalled = 1;
+    mutexUnlock(&event->mutex);
+    condvarWakeAll(&event->cond);
 #else
     pthread_mutex_lock(&event->mutex);
     event->signalled = 1;
@@ -280,6 +316,14 @@ int PltWaitForEvent(PLT_EVENT* event) {
         sceKernelWaitCond(event->cond, NULL);
     }
     sceKernelUnlockMutex(event->mutex, 1);
+
+    return PLT_WAIT_SUCCESS;
+#elif defined(__SWITCH__)
+    mutexLock(&event->mutex);
+    while (!event->signalled) {
+        condvarWait(&event->cond);
+    }
+    mutexUnlock(&event->mutex);
 
     return PLT_WAIT_SUCCESS;
 #else

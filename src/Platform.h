@@ -5,22 +5,27 @@
 #include <stdint.h>
 
 #ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <Winsock2.h>
-#include <ws2tcpip.h>
+    #define WIN32_LEAN_AND_MEAN
+    #include <Windows.h>
+    #include <Winsock2.h>
+    #include <ws2tcpip.h>
 #elif defined(__vita__)
-#include <unistd.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <psp2/kernel/threadmgr.h>
+    #include <unistd.h>
+    #include <sys/time.h>
+    #include <netinet/in.h>
+    #include <psp2/kernel/threadmgr.h>
+#elif defined(__SWITCH__)
+    #include <unistd.h>
+    #include <sys/time.h>
+    #include <netinet/in.h>
+    #include <switch.h>
 #else
-#include <unistd.h>
-#include <pthread.h>
-#include <sys/time.h>
-#include <sys/ioctl.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
+    #include <unistd.h>
+    #include <pthread.h>
+    #include <sys/time.h>
+    #include <sys/ioctl.h>
+    #include <arpa/inet.h>
+    #include <netinet/in.h>
 #endif
 
 #ifdef _WIN32
