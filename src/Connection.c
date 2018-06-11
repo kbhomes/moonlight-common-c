@@ -162,7 +162,14 @@ static void ClInternalConnectionTerminated(long errorCode)
 
 static int resolveHostName(const char* host)
 {
-#ifndef __vita__
+#if defined(__SWITCH__)
+  struct sockaddr_in server;
+  server.sin_addr.s_addr = inet_addr(host);
+  server.sin_family = AF_INET;
+  memcpy(&RemoteAddr, &server, sizeof(server));
+  RemoteAddrLen = sizeof(server);
+  return 0;
+#elif defined(__vita__)
     struct addrinfo hints, *res;
     int err;
 
@@ -184,7 +191,7 @@ static int resolveHostName(const char* host)
             Limelog("getaddrinfo() failed: %d\n", err);
             return err;
         }
-        
+
         if (res == NULL) {
             Limelog("getaddrinfo() returned success without addresses\n");
             return -1;
@@ -223,11 +230,11 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
     NegotiatedVideoFormat = 0;
     memcpy(&StreamConfig, streamConfig, sizeof(StreamConfig));
     RemoteAddrString = strdup(serverInfo->address);
-    
+
     // FEC only works in 16 byte chunks, so we must round down
     // the given packet size to the nearest multiple of 16.
     StreamConfig.packetSize -= StreamConfig.packetSize % 16;
-    
+
     // Extract the appversion from the supplied string
     if (extractVersionQuadFromString(serverInfo->serverInfoAppVersion,
                                      AppVersionQuad) < 0) {
@@ -376,7 +383,7 @@ int LiStartConnection(PSERVER_INFORMATION serverInfo, PSTREAM_CONFIGURATION stre
     LC_ASSERT(stage == STAGE_INPUT_STREAM_START);
     ListenerCallbacks.stageComplete(STAGE_INPUT_STREAM_START);
     Limelog("done\n");
-    
+
     // Wiggle the mouse a bit to wake the display up
     LiSendMouseMoveEvent(1, 1);
     PltSleepMs(10);

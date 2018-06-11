@@ -35,6 +35,9 @@ DWORD WINAPI ThreadProc(LPVOID lpParameter) {
 #elif defined(__vita__)
 int ThreadProc(SceSize args, void *argp) {
     struct thread_context* ctx = (struct thread_context*)argp;
+#elif defined(__SWITCH__)
+void ThreadProc(void* context) {
+    struct thread_context* ctx = (struct thread_context*)context;
 #else
 void* ThreadProc(void* context) {
     struct thread_context* ctx = (struct thread_context*)context;
@@ -50,6 +53,8 @@ void* ThreadProc(void* context) {
 
 #if defined(LC_WINDOWS) || defined(__vita__)
     return 0;
+#elif defined(__SWITCH__)
+    // no return
 #else
     return NULL;
 #endif
