@@ -206,7 +206,7 @@ int PltCreateThread(ThreadEntry entry, void* context, PLT_THREAD* thread) {
         sceKernelStartThread(thread->handle, sizeof(struct thread_context), ctx);
     }
 #elif defined(__SWITCH__)
-    int err = threadCreate(&thread->thread, ThreadProc, ctx, 0x40000, 0, -2);
+    int err = threadCreate(&thread->thread, ThreadProc, ctx, 0x40000, 0x2C, -2);
     if (err) {
         free(ctx);
         return err;

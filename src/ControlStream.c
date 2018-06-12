@@ -626,14 +626,21 @@ int startControlStream(void) {
             return -1;
         }
 
+        Limelog("Created ENet host client\n");
+
         enet_address_set_host(&address, RemoteAddrString);
         address.port = 47999;
+
+        char tmp_addr_string[INET_ADDRSTRLEN];
+        Limelog("Set ENet client to address: %s:%d\n", inet_ntop(AF_INET, &(address.host), tmp_addr_string, INET_ADDRSTRLEN), address.port);
 
         // Connect to the host
         peer = enet_host_connect(client, &address, 1, 0);
         if (peer == NULL) {
             return -1;
         }
+
+        Limelog("Began connection to ENet host\n");
 
         // Wait for the connect to complete
         if (serviceEnetHost(client, &event, CONTROL_STREAM_TIMEOUT_SEC * 1000) <= 0 ||
@@ -644,6 +651,9 @@ int startControlStream(void) {
             enet_host_destroy(client);
             client = NULL;
             return -1;
+        }
+        else {
+          Limelog("RTSP: Successfully connected\n");
         }
 
         // Ensure the connect verify ACK is sent immediately
@@ -681,6 +691,9 @@ int startControlStream(void) {
         }
         return err;
     }
+    else {
+        Limelog("Start A succeeded\n");
+    }
 
     // Send START B
     if (!sendMessageAndDiscardReply(packetTypes[IDX_START_B],
@@ -701,10 +714,16 @@ int startControlStream(void) {
         }
         return err;
     }
+    else {
+        Limelog("Start B succeeded\n");
+    }
 
     err = PltCreateThread(lossStatsThreadFunc, NULL, &lossStatsThread);
     if (err != 0) {
+        fprintf(stderr, "Could not create thread (1)\n");
+
         stopping = 1;
+
         if (ctlSock != INVALID_SOCKET) {
             closeSocket(ctlSock);
             ctlSock = INVALID_SOCKET;
@@ -717,9 +736,14 @@ int startControlStream(void) {
         }
         return err;
     }
+    else {
+        Limelog("Created loss statistics thread\n");
+    }
 
     err = PltCreateThread(invalidateRefFramesFunc, NULL, &invalidateRefFramesThread);
     if (err != 0) {
+        fprintf(stderr, "Could not create thread (2)\n");
+
         stopping = 1;
 
         if (ctlSock != INVALID_SOCKET) {
@@ -745,6 +769,9 @@ int startControlStream(void) {
         }
 
         return err;
+    }
+    else {
+        Limelog("Created invalidate reference frames thread\n");
     }
 
     return 0;
