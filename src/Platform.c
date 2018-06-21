@@ -86,8 +86,7 @@ int PltCreateMutex(PLT_MUTEX* mutex) {
     return 0;
 #elif defined(__SWITCH__)
     mutexInit(mutex);
-
-    if (!*mutex) {
+    if (*mutex != 0) {
         return -1;
     }
     return 0;
@@ -345,6 +344,8 @@ int PltWaitForEvent(PLT_EVENT* event) {
 uint64_t PltGetMillis(void) {
 #if defined(LC_WINDOWS)
     return GetTickCount64();
+#elif defined(__SWITCH__)
+    return svcGetSystemTick() / 19200;
 #elif HAVE_CLOCK_GETTIME
     struct timespec tv;
     
