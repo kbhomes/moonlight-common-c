@@ -224,6 +224,7 @@ static void inputSendThreadProc(void* context) {
 
         err = LbqWaitForQueueElement(&packetQueue, (void**)&holder);
         if (err != LBQ_SUCCESS) {
+            Limelog("Input: Did not receive any input packet to send: %d\n", err);
             return;
         }
 

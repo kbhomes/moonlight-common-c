@@ -38,11 +38,13 @@ int LbqInitializeLinkedBlockingQueue(PLINKED_BLOCKING_QUEUE queueHead, int sizeB
 
     err = PltCreateEvent(&queueHead->containsDataEvent);
     if (err != 0) {
+        printf("LBQ: Could not create data event for LinkedBlockingQueue: %d\n", err);
         return err;
     }
 
     err = PltCreateMutex(&queueHead->mutex);
     if (err != 0) {
+        printf("LBQ: Could not create mutex for LinkedBlockingQueue: %d\n", err);
         return err;
     }
 

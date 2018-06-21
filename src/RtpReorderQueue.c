@@ -135,7 +135,7 @@ static PRTP_QUEUE_ENTRY validateQueueConstraints(PRTP_REORDER_QUEUE queue) {
 
     // Check that the queue's time constraint is satisfied
     if (PltGetMillis() - queue->oldestQueuedTimeMs > queue->maxQueueTimeMs) {
-        Limelog("Returning RTP packet queued for too long\n");
+//        Limelog("Returning RTP packet queued for too long\n");
         dequeuePacket = 1;
     }
 
@@ -143,7 +143,7 @@ static PRTP_QUEUE_ENTRY validateQueueConstraints(PRTP_REORDER_QUEUE queue) {
     // because this is validating that the queue will meet constraints _after_
     // the current packet is enqueued.
     if (!dequeuePacket && queue->queueSize == queue->maxSize - 1) {
-        Limelog("Returning RTP packet after queue overgrowth\n");
+//        Limelog("Returning RTP packet after queue overgrowth\n");
         dequeuePacket = 1;
     }
 

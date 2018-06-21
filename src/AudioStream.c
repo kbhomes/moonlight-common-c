@@ -134,7 +134,7 @@ static void decodeInputData(PQUEUED_AUDIO_PACKET packet) {
 
     rtp = (PRTP_PACKET)&packet->data[0];
     if (lastSeq != 0 && (unsigned short)(lastSeq + 1) != rtp->sequenceNumber) {
-        Limelog("Received OOS audio data (expected %d, but got %d)\n", lastSeq + 1, rtp->sequenceNumber);
+//        Limelog("Received OOS audio data (expected %d, but got %d)\n", lastSeq + 1, rtp->sequenceNumber);
 
         AudioCallbacks.decodeAndPlaySample(NULL, 0);
     }
