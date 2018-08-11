@@ -11,6 +11,8 @@
 #define CHANNEL_MASK_STEREO 0x3
 #define CHANNEL_MASK_51_SURROUND 0xFC
 
+#define HIGH_BITRATE_THRESHOLD 15000
+
 typedef struct _SDP_OPTION {
     char name[MAX_OPTION_NAME_LEN + 1];
     void* payload;
@@ -277,12 +279,20 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
     }
 
     if (AppVersionQuad[0] >= 4) {
+        unsigned char slicesPerFrame;
+
+        // Use slicing for increased performance on some decoders
+        slicesPerFrame = (unsigned char)(VideoCallbacks.capabilities >> 24);
+        if (slicesPerFrame == 0) {
+            // If not using slicing, we request 1 slice per frame
+            slicesPerFrame = 1;
+        }
+        sprintf(payloadStr, "%d", slicesPerFrame);
+        err |= addAttributeString(&optionHead, "x-nv-video[0].videoEncoderSlicesPerFrame", payloadStr);
+
         if (NegotiatedVideoFormat & VIDEO_FORMAT_MASK_H265) {
             err |= addAttributeString(&optionHead, "x-nv-clientSupportHevc", "1");
             err |= addAttributeString(&optionHead, "x-nv-vqos[0].bitStreamFormat", "1");
-            
-            // Disable slicing on HEVC
-            err |= addAttributeString(&optionHead, "x-nv-video[0].videoEncoderSlicesPerFrame", "1");
 
             if (AppVersionQuad[0] >= 7) {
                 // Enable HDR if requested
@@ -299,7 +309,6 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             err |= addAttributeString(&optionHead, "x-nv-video[0].encoderFeatureSetting", "0");
         }
         else {
-            unsigned char slicesPerFrame;
             
             err |= addAttributeString(&optionHead, "x-nv-clientSupportHevc", "0");
             err |= addAttributeString(&optionHead, "x-nv-vqos[0].bitStreamFormat", "0");
@@ -313,15 +322,6 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             // the server or client doesn't support HEVC and the client didn't do the correct checks
             // before requesting HDR streaming.
             LC_ASSERT(!StreamConfig.enableHdr);
-
-            // Use slicing for increased performance on some decoders
-            slicesPerFrame = (unsigned char)(VideoCallbacks.capabilities >> 24);
-            if (slicesPerFrame == 0) {
-                // If not using slicing, we request 1 slice per frame
-                slicesPerFrame = 1;
-            }
-            sprintf(payloadStr, "%d", slicesPerFrame);
-            err |= addAttributeString(&optionHead, "x-nv-video[0].videoEncoderSlicesPerFrame", payloadStr);
         }
 
         if (AppVersionQuad[0] >= 7) {
@@ -357,6 +357,22 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
         }
         else {
             err |= addAttributeString(&optionHead, "x-nv-audio.surround.enable", "0");
+        }
+
+        if (AppVersionQuad[0] >= 7) {
+            // Decide to use HQ audio based on the original video bitrate, not the HEVC-adjusted value
+            if (OriginalVideoBitrate >= HIGH_BITRATE_THRESHOLD && audioChannelCount > 2) {
+                // Enable high quality mode for surround sound
+                err |= addAttributeString(&optionHead, "x-nv-audio.surround.AudioQuality", "1");
+
+                // Let the audio stream code know that it needs to disable coupled streams when
+                // decoding this audio stream.
+                HighQualitySurroundEnabled = 1;
+            }
+            else {
+                err |= addAttributeString(&optionHead, "x-nv-audio.surround.AudioQuality", "0");
+                HighQualitySurroundEnabled = 0;
+            }
         }
     }
 
