@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -105,9 +107,9 @@ typedef struct _DECODE_UNIT {
     // Frame type
     int frameType;
 
-    // Receive time of first buffer
-    // NOTE: This will be populated from gettimeofday() if !HAVE_CLOCK_GETTIME and
-    // populated from clock_gettime(CLOCK_MONOTONIC) if HAVE_CLOCK_GETTIME
+    // Receive time of first buffer. This value uses an implementation-defined epoch.
+    // To compute actual latency values, use LiGetMillis() to get a timestamp that
+    // shares the same epoch as this value.
     unsigned long long receiveTimeMs;
 
     // Length of the entire buffer chain in bytes
@@ -211,13 +213,13 @@ typedef struct _OPUS_MULTISTREAM_CONFIGURATION {
     int channelCount;
     int streams;
     int coupledStreams;
-    const unsigned char mapping[6];
+    unsigned char mapping[6];
 } OPUS_MULTISTREAM_CONFIGURATION, *POPUS_MULTISTREAM_CONFIGURATION;
 
 // This callback initializes the audio renderer. The audio configuration parameter
 // provides the negotiated audio configuration. This may differ from the one
 // specified in the stream configuration. Returns 0 on success, non-zero on failure.
-typedef int(*AudioRendererInit)(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION opusConfig, void* context, int arFlags);
+typedef int(*AudioRendererInit)(int audioConfiguration, const POPUS_MULTISTREAM_CONFIGURATION opusConfig, void* context, int arFlags);
 
 // This callback notifies the decoder that the stream is starting. No audio can be submitted before this callback returns.
 typedef void(*AudioRendererStart)(void);
@@ -345,6 +347,8 @@ int LiSendMouseMoveEvent(short deltaX, short deltaY);
 #define BUTTON_LEFT 0x01
 #define BUTTON_MIDDLE 0x02
 #define BUTTON_RIGHT 0x03
+#define BUTTON_X1 0x04
+#define BUTTON_X2 0x05
 int LiSendMouseButtonEvent(char action, int button);
 
 // This function queues a keyboard event to be sent to the remote server.
@@ -388,6 +392,11 @@ int LiSendMultiControllerEvent(short controllerNumber, short activeGamepadMask,
 
 // This function queues a vertical scroll event to the remote server.
 int LiSendScrollEvent(signed char scrollClicks);
+
+// This function returns a time in milliseconds with an implementation-defined epoch.
+// NOTE: This will be populated from gettimeofday() if !HAVE_CLOCK_GETTIME and
+// populated from clock_gettime(CLOCK_MONOTONIC) if HAVE_CLOCK_GETTIME.
+uint64_t LiGetMillis(void);
 
 #ifdef __cplusplus
 }

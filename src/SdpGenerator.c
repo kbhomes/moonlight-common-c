@@ -162,6 +162,10 @@ static int addGen5Options(PSDP_OPTION* head) {
         err |= addAttributeString(head, "x-nv-vqos[0].fec.repairPercent", "5");
     }
 
+    // Recovery mode can cause the FEC percentage to change mid-frame, which
+    // breaks many assumptions in RTP FEC queue.
+    err |= addAttributeString(head, "x-nv-general.enableRecoveryMode", "0");
+
     return err;
 }
 
@@ -197,7 +201,7 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
     if (AppVersionQuad[0] >= 5) {
         int maxEncodingBitrate;
 
-        if (StreamConfig.width <= 1280 || StreamConfig.height <= 720) {
+        if (StreamConfig.width * StreamConfig.height <= 1366 * 768) {
             // 720p
             if (StreamConfig.fps <= 30) {
                 // 30 FPS
@@ -208,7 +212,7 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
                 maxEncodingBitrate = 12000;
             }
         }
-        else if (StreamConfig.width <= 1920 || StreamConfig.height <= 1080) {
+        else if (StreamConfig.width * StreamConfig.height <= 1920 * 1200) {
             // 1080p
             if (StreamConfig.fps <= 30) {
                 // 30 FPS
@@ -217,6 +221,17 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
             else {
                 // 60 FPS
                 maxEncodingBitrate = 25000;
+            }
+        }
+        else if (StreamConfig.width * StreamConfig.height <= 2560 * 1600) {
+            // 1440p
+            if (StreamConfig.fps <= 30) {
+                // 30 FPS
+                maxEncodingBitrate = 20000;
+            }
+            else {
+                // 60 FPS
+                maxEncodingBitrate = 35000;
             }
         }
         else {
@@ -304,9 +319,15 @@ static PSDP_OPTION getAttributesList(char*urlSafeAddr) {
                 }
             }
 
-            // This disables split frame encode on GFE 3.10 which seems to produce broken
-            // HEVC output at 1080p60 (full of artifacts even on the SHIELD itself, go figure)
-            err |= addAttributeString(&optionHead, "x-nv-video[0].encoderFeatureSetting", "0");
+            if (AppVersionQuad[0] < 7 ||
+                (AppVersionQuad[0] == 7 && AppVersionQuad[1] < 1) ||
+                (AppVersionQuad[0] == 7 && AppVersionQuad[1] == 1 && AppVersionQuad[2] < 408)) {
+                // This disables split frame encode on GFE 3.10 which seems to produce broken
+                // HEVC output at 1080p60 (full of artifacts even on the SHIELD itself, go figure).
+                // It now appears to work fine on GFE 3.14.1.
+                Limelog("Disabling split encode for HEVC on older GFE version");
+                err |= addAttributeString(&optionHead, "x-nv-video[0].encoderFeatureSetting", "0");
+            }
         }
         else {
             
