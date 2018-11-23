@@ -1,6 +1,8 @@
 #include "PlatformSockets.h"
 #include "Limelight-internal.h"
 
+#define TEST_PORT_TIMEOUT_SEC 3
+
 #define RCV_BUFFER_SIZE_MIN  32767
 #define RCV_BUFFER_SIZE_STEP 16384
 
@@ -206,7 +208,7 @@ SOCKET connectTcpSocket(struct sockaddr_storage* dstaddr, SOCKADDR_LEN addrlen, 
 #endif
 
     // Start connection
-    memcpy(&addr, dstaddr, sizeof(addr));
+    memcpy(&addr, dstaddr, addrlen);
     addr.sin6_port = htons(port);
     err = connect(s, (struct sockaddr*) &addr, addrlen);
     if (err < 0) {
@@ -277,6 +279,97 @@ int enableNoDelay(SOCKET s) {
     err = setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char*)&val, sizeof(val));
     if (err == SOCKET_ERROR) {
         return LastSocketError();
+    }
+
+    return 0;
+}
+
+int resolveHostName(const char* host, int family, int tcpTestPort, struct sockaddr_storage* addr, SOCKADDR_LEN* addrLen)
+{
+#ifndef __vita__
+    struct addrinfo hints, *res, *currentAddr;
+    int err;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = family;
+    hints.ai_flags = AI_ADDRCONFIG;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    err = getaddrinfo(host, NULL, &hints, &res);
+    if (err != 0) {
+        Limelog("getaddrinfo(%s) failed: %d\n", host, err);
+        return err;
+    }
+    else if (res == NULL) {
+        Limelog("getaddrinfo(%s) returned success without addresses\n", host);
+        return -1;
+    }
+    
+    for (currentAddr = res; currentAddr != NULL; currentAddr = currentAddr->ai_next) {
+        // Use the test port to ensure this address is working
+        if (tcpTestPort != 0) {
+            SOCKET testSocket = connectTcpSocket((struct sockaddr_storage*)currentAddr->ai_addr,
+                                                 currentAddr->ai_addrlen,
+                                                 tcpTestPort,
+                                                 TEST_PORT_TIMEOUT_SEC);
+            if (testSocket == INVALID_SOCKET) {
+                // Try the next address
+                continue;
+            }
+            else {
+                closeSocket(testSocket);
+            }
+        }
+        
+        memcpy(addr, currentAddr->ai_addr, currentAddr->ai_addrlen);
+        *addrLen = currentAddr->ai_addrlen;
+        
+        freeaddrinfo(res);
+        return 0;
+    }
+
+    Limelog("No working addresses found for host: %s\n", host);
+    freeaddrinfo(res);
+    return -1;
+#else
+    struct hostent *phost = gethostbyname(host);
+    if (!phost) {
+        Limelog("gethostbyname() failed for host %s\n", host);
+        return -1;
+    }
+    struct sockaddr_in tmp = {0};
+    tmp.sin_len = sizeof(tmp);
+    tmp.sin_family = SCE_NET_AF_INET;
+    memcpy(&tmp.sin_addr, phost->h_addr, phost->h_length);
+
+    memcpy(addr, &tmp, sizeof(tmp));
+    *addrLen = sizeof(tmp);
+    return 0;
+#endif
+}
+
+int isPrivateNetworkAddress(struct sockaddr_storage* address) {
+    unsigned int addr;
+
+    // We only count IPv4 addresses as possibly private for now
+    if (address->ss_family != AF_INET) {
+        return 0;
+    }
+
+    memcpy(&addr, &((struct sockaddr_in*)address)->sin_addr, sizeof(addr));
+    addr = htonl(addr);
+
+    // 10.0.0.0/8
+    if ((addr & 0xFF000000) == 0x0A000000) {
+        return 1;
+    }
+    // 172.16.0.0/12
+    else if ((addr & 0xFFF00000) == 0xAC100000) {
+        return 1;
+    }
+    // 192.168.0.0/16
+    else if ((addr & 0xFFFF0000) == 0xC0A80000) {
+        return 1;
     }
 
     return 0;
