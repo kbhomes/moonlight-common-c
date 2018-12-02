@@ -205,10 +205,10 @@ int PltCreateThread(ThreadEntry entry, void* context, PLT_THREAD* thread) {
         sceKernelStartThread(thread->handle, sizeof(struct thread_context), ctx);
     }
 #elif defined(__SWITCH__)
-    int err = threadCreate(&thread->thread, ThreadProc, ctx, 0x40000, 0x2C, -2);
-    if (err) {
+    Result rc = threadCreate(&thread->thread, ThreadProc, ctx, 0x40000, 0x2C, -2);
+    if (R_FAILED(rc)) {
         free(ctx);
-        return err;
+        return (int)rc;
     }
     threadStart(&thread->thread);
 #else
@@ -248,7 +248,7 @@ int PltCreateEvent(PLT_EVENT* event) {
     return 0;
 #elif defined(__SWITCH__)
     mutexInit(&event->mutex);
-    condvarInit(&event->cond, &event->mutex);
+    condvarInit(&event->cond);
     event->signalled = 0;
     return 0;
 #else
@@ -325,7 +325,7 @@ int PltWaitForEvent(PLT_EVENT* event) {
 #elif defined(__SWITCH__)
     mutexLock(&event->mutex);
     while (!event->signalled) {
-        condvarWait(&event->cond);
+        condvarWait(&event->cond, &event->mutex);
     }
     mutexUnlock(&event->mutex);
 
